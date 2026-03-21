@@ -4,12 +4,12 @@ import cv2
 import os
 import time
 
-# ─── CONFIG ───────────────────────────────────────────
+# CONFIG 
 MODEL_PATH  = "terrain_model_best.h5"
 IMG_SIZE    = (224, 224)
 CLASS_NAMES = ["gravel", "rock_field", "sand", "smooth_ground"]
 
-# ─── SPEED & RISK LOGIC ───────────────────────────────
+# SPEED & RISK LOGIC 
 def get_terrain_info(terrain, confidence):
     rules = {
         "smooth_ground": {
@@ -64,7 +64,7 @@ def get_terrain_info(terrain, confidence):
     return info["risk"], info["speed_range"], speed
 
 
-# ─── SURFACE DESCRIPTION ──────────────────────────────
+# SURFACE DESCRIPTION 
 def get_terrain_description(terrain, confidence):
     descriptions = {
         "smooth_ground": {
@@ -105,18 +105,18 @@ def get_terrain_description(terrain, confidence):
     return descriptions[terrain][level]
 
 
-# ─── LOAD MODEL ───────────────────────────────────────
+# LOAD MODEL 
 print("\n Loading terrain classification model...")
 model = tf.keras.models.load_model(MODEL_PATH)
 print(" Model loaded successfully!")
 print("=" * 50)
 
 
-# ─── PREDICT SINGLE IMAGE ─────────────────────────────
+# PREDICT SINGLE IMAGE 
 def predict_terrain(image_path):
     img = cv2.imread(image_path)
     if img is None:
-        print(f"❌ Could not load image: {image_path}")
+        print(f" Could not load image: {image_path}")
         return
 
     img_resized  = cv2.resize(img, IMG_SIZE)
@@ -127,13 +127,13 @@ def predict_terrain(image_path):
     predictions = model.predict(img_expanded, verbose=0)
     end_time    = time.time()
 
-    # ── Debug raw scores ─────────────────────────────
+    # Debug raw scores
     print(f"\nRaw scores → gravel:{predictions[0][0]:.2f}  rock:{predictions[0][1]:.2f}  sand:{predictions[0][2]:.2f}  smooth:{predictions[0][3]:.2f}")
 
-    # ── Temperature scaling (FIXED typo) ─────────────
+    # Temperature scaling 
     TEMPERATURE  = 1.3
-    predictions  = predictions ** (1 / TEMPERATURE)   # ✅ fixed
-    predictions  = predictions / np.sum(predictions)  # ✅ now correct
+    predictions  = predictions ** (1 / TEMPERATURE)   
+    predictions  = predictions / np.sum(predictions)  
 
     inference_ms = (end_time - start_time) * 1000
     class_idx    = np.argmax(predictions[0])
@@ -144,7 +144,7 @@ def predict_terrain(image_path):
     description              = get_terrain_description(terrain, confidence)
     display_name             = terrain.replace("_", " ").title()
 
-    # ── Output ───────────────────────────────────────
+    # Output 
     print(f"\n Image                : {os.path.basename(image_path)}")
     print(f"─" * 50)
     print(f"Terrain Detected        : {display_name}")
@@ -159,7 +159,7 @@ def predict_terrain(image_path):
     print(f"=" * 50)
 
 
-# ─── PREDICT FOLDER ───────────────────────────────────
+# PREDICT FOLDER 
 def predict_folder(folder_path):
     valid_ext = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
     images    = [f for f in os.listdir(folder_path)
@@ -177,7 +177,7 @@ def predict_folder(folder_path):
         predict_terrain(full_path)
 
 
-# ─── MAIN ─────────────────────────────────────────────
+# MAIN 
 if __name__ == "__main__":
     print("\n Rover Terrain Classification System")
     print("=" * 50)

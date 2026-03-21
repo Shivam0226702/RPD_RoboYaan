@@ -25,7 +25,7 @@ train_datagen = ImageDataGenerator(
     vertical_flip=True,
     brightness_range=[0.75, 1.25],
     shear_range=0.2,
-    channel_shift_range=30.0,    # ← NEW helps distinguish colors
+    channel_shift_range=30.0,   
     fill_mode="nearest",
     validation_split=0.2
 )
@@ -58,17 +58,17 @@ print("\n Class Mapping Detected:")
 for cls, idx in train_data.class_indices.items():
     print(f"  {idx} → {cls}")
 
-# ─── CLASS WEIGHTS ────────────────────────────────────
-total = 1752  # 436+444+387+485
+# CLASS WEIGHTS 
+total = 1752 
 weights = {
-    0: total / (4 * 436),   # gravel        → 1.00
-    1: total / (4 * 444),   # rock_field    → 0.99
-    2: total / (4 * 387),   # sand          → 1.13 ← boosted
-    3: total / (4 * 485),   # smooth_ground → 0.90
+    0: total / (4 * 436),   
+    1: total / (4 * 444),  
+    2: total / (4 * 387),  
+    3: total / (4 * 485),   
 }
 print(f"\n  Class weights: {weights}")
 
-# ─── MODEL ────────────────────────────────────────────
+# MODEL 
 base_model = MobileNetV2(
     input_shape=(224, 224, 3),
     include_top=False,
@@ -94,14 +94,14 @@ output = Dense(4, activation="softmax")(x)
 
 model = Model(inputs=base_model.input, outputs=output)
 
-# ─── COMPILE ──────────────────────────────────────────
+# COMPILE 
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.00003),  # ← lowered
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.00003), 
     loss="categorical_crossentropy",
     metrics=["accuracy"]
 )
 
-# ─── CALLBACKS ────────────────────────────────────────
+# CALLBACKS 
 callbacks = [
     EarlyStopping(
         monitor="val_accuracy",
@@ -124,8 +124,8 @@ callbacks = [
     )
 ]
 
-# ─── TRAIN ────────────────────────────────────────────
-print("\n🚀 Training started...\n")
+# TRAIN 
+print("\n Training started...\n")
 history = model.fit(
     train_data,
     validation_data=val_data,
@@ -134,16 +134,16 @@ history = model.fit(
     callbacks=callbacks
 )
 
-# ─── SAVE ─────────────────────────────────────────────
+# SAVE 
 model.save("terrain_model.h5")
 print("\n Final model saved as terrain_model.h5")
 print(" Best model saved as terrain_model_best.h5")
 
-# ─── CALCULATE MSE ────────────────────────────────────
+# CALCULATE MSE 
 train_mse = [1 - acc for acc in history.history["accuracy"]]
 val_mse   = [1 - acc for acc in history.history["val_accuracy"]]
 
-# ─── PLOTS ────────────────────────────────────────────
+# PLOTS
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 5))
 
 ax1.plot(history.history["accuracy"],     label="Train Accuracy", color="blue")

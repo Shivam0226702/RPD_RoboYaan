@@ -1,4 +1,3 @@
-
 import cv2
 import numpy as np
 import time
@@ -6,51 +5,41 @@ import threading
 from ultralytics import YOLO
 from sort import Sort
 
-YOLO_MODEL      = "yolov8n.pt"   # nano – fast; swap to yolov8s.pt for more accuracy
-CONF_THRESHOLD  = 0.40           # minimum detection confidence
-IOU_THRESHOLD   = 0.45           # NMS IOU threshold
-MAX_AGE         = 10             # frames to keep a lost track alive
-MIN_HITS        = 2              # min detections before track is confirmed
-BOX_COLOR       = (0, 220, 90)   # bright green bounding box
+YOLO_MODEL      = "yolov8n.pt"
+CONF_THRESHOLD  = 0.40
+IOU_THRESHOLD   = 0.45
+MAX_AGE         = 10
+MIN_HITS        = 2
+BOX_COLOR       = (0, 220, 90)
 TEXT_COLOR      = (255, 255, 255)
 LABEL_BG_COLOR  = (0, 140, 55)
 FONT            = cv2.FONT_HERSHEY_DUPLEX
 FONT_SCALE      = 0.65
 THICKNESS       = 2
 
-# ──────────────────────────────────────────────
-# Shared state (thread-safe via lock)
-# ──────────────────────────────────────────────
 target_lock   = threading.Lock()
-target_object = ""          # current user-chosen class name
-status_msg    = "Waiting for target…"
+target_object = ""
+status_msg    = "Waiting for target"
 
 
 def input_thread():
-    """Background thread: continuously reads new target from stdin."""
     global target_object, status_msg
-    print("\n╔══════════════════════════════════════════╗")
-    print("║  Roboyaan – Target Object Tracker        ║")
-    print("║  Type an object name and press Enter     ║")
-    print("║  Valid COCO names: person, bottle,       ║")
-    print("║  laptop, book, chair, dog, cat …         ║")
-    print("║  Press Q in the video window to quit     ║")
-    print("╚══════════════════════════════════════════╝\n")
+    print("Roboyaan – Target Object Tracker")
+    print("Type an object name and press Enter")
+    print("Valid COCO names: person, bottle, laptop, book, chair, dog, cat")
+    print("Press Q in the video window to quit\n")
     while True:
-        raw = input("🎯  Enter target object: ").strip().lower()
+        raw = input("Enter target object: ").strip().lower()
         if raw:
             with target_lock:
                 target_object = raw
                 status_msg    = f"Searching for: {raw.upper()}"
-            print(f"   → Locking onto '{raw}' …")
+            print(f"   -> Locking onto '{raw}' ...")
 
 
 def draw_box(frame, x1, y1, x2, y2, label, conf, track_id):
-    """Draw a stylised bounding box with label banner."""
-    # Main rectangle
     cv2.rectangle(frame, (x1, y1), (x2, y2), BOX_COLOR, THICKNESS)
 
-    # Corner accents
     corner_len = 15
     for cx, cy, dx, dy in [
         (x1, y1,  1,  1), (x2, y1, -1,  1),
@@ -59,7 +48,6 @@ def draw_box(frame, x1, y1, x2, y2, label, conf, track_id):
         cv2.line(frame, (cx, cy), (cx + dx * corner_len, cy), BOX_COLOR, 3)
         cv2.line(frame, (cx, cy), (cx, cy + dy * corner_len), BOX_COLOR, 3)
 
-    # Label banner
     banner = f"{label.upper()}  {conf:.0%}  ID:{track_id}"
     (tw, th), _ = cv2.getTextSize(banner, FONT, FONT_SCALE, 1)
     by1 = max(y1 - th - 10, 0)
@@ -68,16 +56,14 @@ def draw_box(frame, x1, y1, x2, y2, label, conf, track_id):
 
 
 def draw_hud(frame, fps, target, found_count):
-    """Draw top-left HUD overlay."""
-    h, w = frame.shape[:2]
     overlay = frame.copy()
     cv2.rectangle(overlay, (0, 0), (340, 100), (20, 20, 20), -1)
     cv2.addWeighted(overlay, 0.55, frame, 0.45, 0, frame)
 
-    cv2.putText(frame, f"FPS : {fps:.1f}",          (10, 25),  FONT, 0.58, (180, 255, 180), 1, cv2.LINE_AA)
+    cv2.putText(frame, f"FPS : {fps:.1f}", (10, 25), FONT, 0.58, (180, 255, 180), 1, cv2.LINE_AA)
     cv2.putText(frame, f"Target : {target.upper() if target else 'None'}",
-                (10, 50),  FONT, 0.58, (255, 220, 60), 1, cv2.LINE_AA)
-    status = f"Tracking {found_count} object(s)" if found_count else "Searching…"
+                (10, 50), FONT, 0.58, (255, 220, 60), 1, cv2.LINE_AA)
+    status = f"Tracking {found_count} object(s)" if found_count else "Searching..."
     color  = (80, 255, 80) if found_count else (80, 160, 255)
     cv2.putText(frame, f"Status : {status}", (10, 75), FONT, 0.58, color, 1, cv2.LINE_AA)
     cv2.putText(frame, "Press Q to quit", (10, 98), FONT, 0.45, (140, 140, 140), 1, cv2.LINE_AA)
@@ -86,18 +72,15 @@ def draw_hud(frame, fps, target, found_count):
 def main():
     global target_object, status_msg
 
-    # ── Load model ──────────────────────────────
-    print(f"\n[INFO] Loading {YOLO_MODEL} …")
+    print(f"\n[INFO] Loading {YOLO_MODEL} ...")
     model = YOLO(YOLO_MODEL)
-    class_names = model.names          # dict {0: 'person', 1: 'bicycle', …}
+    class_names = model.names
     print(f"[INFO] Model ready. {len(class_names)} classes available.")
     print(f"[INFO] Sample classes: {list(class_names.values())[:10]}\n")
 
-    # ── Start input thread ───────────────────────
     t = threading.Thread(target=input_thread, daemon=True)
     t.start()
 
-    # ── Open camera ─────────────────────────────
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("[ERROR] Cannot open camera. Check your camera index.")
@@ -109,15 +92,14 @@ def main():
     fps_prev = time.time()
     fps      = 0.0
 
-    print("[INFO] Camera open. Video window launching…\n")
+    print("[INFO] Camera open. Video window launching...\n")
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("[WARN] Frame read failed. Retrying…")
+            print("[WARN] Frame read failed. Retrying...")
             continue
 
-        # ── FPS ──────────────────────────────────
         now = time.time()
         fps = 0.9 * fps + 0.1 * (1.0 / max(now - fps_prev, 1e-6))
         fps_prev = now
@@ -125,15 +107,12 @@ def main():
         with target_lock:
             current_target = target_object
 
-        # ── YOLO inference ───────────────────────
         results = model(frame, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD, verbose=False)[0]
 
-        # ── Filter detections to target class ────
-        target_dets = []       # rows: [x1,y1,x2,y2,conf]
-        target_confs = {}      # map bbox index → confidence
+        target_dets = []
 
         for box in results.boxes:
-            cls_id  = int(box.cls[0])
+            cls_id   = int(box.cls[0])
             cls_name = class_names[cls_id].lower()
             if cls_name == current_target:
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
@@ -142,10 +121,8 @@ def main():
 
         dets_np = np.array(target_dets) if target_dets else np.empty((0, 5))
 
-        # ── Update tracker ───────────────────────
         tracks = tracker.update(dets_np)
 
-        # Build conf lookup by nearest bbox
         def best_conf(tx1, ty1, tx2, ty2):
             if not target_dets:
                 return 0.0
@@ -156,28 +133,24 @@ def main():
                     best, best_c = dist, d[4]
             return best_c
 
-        # ── Draw tracks ──────────────────────────
         found_count = len(tracks)
         for trk in tracks:
             x1, y1, x2, y2, tid = map(int, trk[:5])
             conf = best_conf(x1, y1, x2, y2)
             draw_box(frame, x1, y1, x2, y2, current_target or "?", conf, tid)
-
-            # Console log
             print(
-                f"  ✔  Target: {(current_target or '?').upper():<10} | "
+                f"  Target: {(current_target or '?').upper():<10} | "
                 f"Conf: {conf:.0%}  | ID: {tid}  | Status: Tracking Active",
                 end="\r"
             )
 
         if tracks.size == 0 and current_target:
-            print(f"  ⟳  Searching for '{current_target.upper()}' …           ", end="\r")
-        # ── HUD overlay ──────────────────────────
+            print(f"  Searching for '{current_target.upper()}' ...          ", end="\r")
+
         draw_hud(frame, fps, current_target, found_count)
 
         cv2.imshow("Roboyaan – Target Tracker  (Q to quit)", frame)
 
-        # ── Key handler ──────────────────────────
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q") or key == 27:
             break
